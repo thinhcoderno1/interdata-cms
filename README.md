@@ -2,6 +2,33 @@
 
 This template comes configured with the bare minimum to get started on anything you need.
 
+## PostgreSQL and Coolify configuration
+
+This project uses the PostgreSQL adapter. `src/payload.config.ts` reads
+`DATABASE_URL` and `PAYLOAD_SECRET` from the server environment.
+
+- For local development, copy `.env.example` to `.env` and replace the placeholders.
+- For Coolify, add the real `DATABASE_URL` and a long, random `PAYLOAD_SECRET`
+  under the application's **Environment Variables**, with runtime availability
+  enabled. Keep the same production secret across redeployments.
+- Never prefix either secret with `NEXT_PUBLIC_`, commit real credentials, or
+  paste them into Dockerfile `ARG` / `ENV` instructions.
+- If the build needs sensitive environment values, configure Coolify's BuildKit
+  build secrets rather than traditional Docker build arguments. The Dockerfile
+  must explicitly consume those secret mounts; runtime variables alone are not
+  automatically available during a Docker build.
+- Save the variables and deploy again to apply them.
+
+`.gitignore` excludes local environment files while keeping the placeholder-only
+`.env.example`. `.dockerignore` also excludes real environment files from the
+Docker build context. Git ignore rules do not remove files from existing history.
+
+The remaining instructions below come from the starter template; its MongoDB
+Docker Compose setup does not match this project's PostgreSQL adapter.
+
+References: [Payload environment variables](https://payloadcms.com/docs/configuration/environment-vars),
+[Coolify environment variables](https://coolify.io/docs/applications/configuration/environment-variables).
+
 ## Quick start
 
 This template can be deployed directly from our Cloud hosting and it will setup MongoDB and cloud S3 object storage for media.

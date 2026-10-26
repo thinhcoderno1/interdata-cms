@@ -1,0 +1,14 @@
+.git
+node_modules
+.next
+.env
+.env.*
+!.env.example
+media
+coverage
+test-results
+playwright-report
+blob-report
+*.log
+*.pem
+*.key
