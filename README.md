@@ -1,94 +1,79 @@
-# Payload Blank Template
+# Interdata CMS
 
-This template comes configured with the bare minimum to get started on anything you need.
+Payload CMS with Next.js and PostgreSQL.
 
-## PostgreSQL and Coolify configuration
+## Local development
 
-This project uses the PostgreSQL adapter. `src/payload.config.ts` reads
-`DATABASE_URL` and `PAYLOAD_SECRET` from the server environment.
+1. Install Node.js matching `package.json` and pnpm `10.34.9`.
+2. Copy `.env.example` to `.env` and set a PostgreSQL `DATABASE_URL` and a long,
+   random `PAYLOAD_SECRET`.
+3. Run `pnpm install --frozen-lockfile`, then `pnpm dev`.
+4. Open <http://localhost:3000/admin>.
 
-- For local development, copy `.env.example` to `.env` and replace the placeholders.
-- For Coolify, add the real `DATABASE_URL` and a long, random `PAYLOAD_SECRET`
-  under the application's **Environment Variables**, with runtime availability
-  enabled. Keep the same production secret across redeployments.
-- Never prefix either secret with `NEXT_PUBLIC_`, commit real credentials, or
-  paste them into Dockerfile `ARG` / `ENV` instructions.
-- If the build needs sensitive environment values, configure Coolify's BuildKit
-  build secrets rather than traditional Docker build arguments. The Dockerfile
-  must explicitly consume those secret mounts; runtime variables alone are not
-  automatically available during a Docker build.
-- Save the variables and deploy again to apply them.
+Keep production credentials separate from local and test credentials.
 
-`.gitignore` excludes local environment files while keeping the placeholder-only
-`.env.example`. `.dockerignore` also excludes real environment files from the
-Docker build context. Git ignore rules do not remove files from existing history.
+## Production deployment with Docker Compose
 
-The remaining instructions below come from the starter template; its MongoDB
-Docker Compose setup does not match this project's PostgreSQL adapter.
+The repository's `docker-compose.yml` builds the application from the checked-out
+Git repository using `Dockerfile`. It runs the Next.js standalone production
+server on `0.0.0.0:3000`; it does not run `pnpm dev` or mount the source directory
+from the host.
 
-References: [Payload environment variables](https://payloadcms.com/docs/configuration/environment-vars),
-[Coolify environment variables](https://coolify.io/docs/applications/configuration/environment-variables).
+In Coolify or another Compose hosting platform:
 
-## Quick start
+1. Select this Git repository, branch `main`, and `docker-compose.yml`.
+   The build context must be the repository root containing `package.json`.
+   If using a pasted Compose definition, the platform must still check out the
+   repository so `build.context: .` has the source files.
+2. Add `DATABASE_URL` and `PAYLOAD_SECRET` in the deployment's environment settings.
+   Compose requires both values and explicitly passes them into the container.
+   `DATABASE_URL` must reach an existing PostgreSQL service from the app container;
+   `localhost` refers to the app container itself. Configure the platform's Docker
+   network so the app can reach your PostgreSQL service.
+3. Route the domain to service `payload`, internal port `3000`, using HTTP to
+   the app container. The reverse proxy handles external HTTPS.
+4. Remove any platform command override containing `pnpm dev` and any source or
+   `node_modules` mount from the previous configuration. Rebuild and redeploy
+   from Git; restarting the old container does not apply these changes.
 
-This template can be deployed directly from our Cloud hosting and it will setup MongoDB and cloud S3 object storage for media.
+For a local Docker installation, `docker compose up --build -d` starts the app.
+The Compose file exposes port `3000` only inside Docker. To access it directly
+from the host without a reverse proxy, add a local port mapping such as
+`127.0.0.1:3000:3000` to service `payload`.
 
-## Quick Start - local setup
+The `media` named volume persists uploaded files. PostgreSQL is managed separately;
+this Compose file does not create or migrate a database. For a new production
+schema, generate and review Payload migrations and run them against the intended
+database as part of your release process.
 
-To spin up this template locally, follow these steps:
+## Environment variables and secrets
 
-### Clone
+`src/payload.config.ts` reads `DATABASE_URL` and `PAYLOAD_SECRET` from the server
+environment. Keep the production secret stable across redeployments.
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. If you've already cloned this repo, skip to [Development](#development).
+- `.env.example` contains placeholders only.
+- `.gitignore` excludes `.env` and `.env.*`, except `.env.example`.
+- `.dockerignore` excludes real environment files from the Docker build context.
+- Never prefix either secret with `NEXT_PUBLIC_` or put real credentials in Git,
+  Dockerfile `ARG` / `ENV` instructions, or the Compose file.
+- The current app is built without production credentials; the deployment injects
+  them at runtime. If future static generation needs secrets during a build, use
+  BuildKit secret mounts explicitly rather than Docker build arguments.
+- Ignore rules do not remove secrets from existing Git history.
 
-### Development
+## Troubleshooting
 
-1. First [clone the repo](#clone) if you have not done so already
-2. `cd my-project && cp .env.example .env` to copy the example environment variables. You'll need to add the `MONGODB_URL` from your Cloud project to your `.env` if you want to use S3 storage and the MongoDB database that was created for you.
+`Command "dev" not found` with an almost-empty `pnpm install` usually means the
+container is running in a directory without the project's `package.json` scripts.
+Check the deployment source and build context. The production configuration in
+this repository avoids the old `.:/home/node/app` source mount and pins pnpm.
 
-3. `pnpm install && pnpm dev` to install dependencies and start the dev server
-4. open `http://localhost:3000` to open the app in your browser
+A 502 response does not by itself prove a port mismatch. Check build logs first,
+then runtime logs, and confirm that the production server is listening on port
+`3000`. Database connectivity and schema errors also need to be resolved before
+Payload can serve requests successfully.
 
-That's it! Changes made in `./src` will be reflected in your app. Follow the on-screen instructions to login and create your first admin user. Then check out [Production](#production) once you're ready to build and serve your app, and [Deployment](#deployment) when you're ready to go live.
-
-#### Docker (Optional)
-
-If you prefer to use Docker for local development instead of a local MongoDB instance, the provided docker-compose.yml file can be used.
-
-To do so, follow these steps:
-
-- Modify the `MONGODB_URL` in your `.env` file to `mongodb://127.0.0.1/<dbname>`
-- Modify the `docker-compose.yml` file's `MONGODB_URL` to match the above `<dbname>`
-- Run `docker-compose up` to start the database, optionally pass `-d` to run in the background.
-
-## How it works
-
-The Payload config is tailored specifically to the needs of most websites. It is pre-configured in the following ways:
-
-### Collections
-
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
-
-- #### Users (Authentication)
-
-  Users are auth-enabled collections that have access to the admin panel.
-
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/3.x/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
-
-- #### Media
-
-  This is the uploads enabled collection. It features pre-configured sizes, focal point and manual resizing to help you manage your pictures.
-
-### Docker
-
-Alternatively, you can use [Docker](https://www.docker.com) to spin up this template locally. To do so, follow these steps:
-
-1. Follow [steps 1 and 2 from above](#development), the docker-compose file will automatically use the `.env` file in your project root
-1. Next run `docker-compose up`
-1. Follow [steps 4 and 5 from above](#development) to login and create your first admin user
-
-That's it! The Docker instance will help you get up and running quickly while also standardizing the development environment across your teams.
-
-## Questions
-
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
+References: [Payload deployment](https://payloadcms.com/docs/production/deployment),
+[Payload migrations](https://payloadcms.com/docs/database/migrations),
+[Coolify environment variables](https://coolify.io/docs/applications/configuration/environment-variables),
+[Docker bind mounts](https://docs.docker.com/engine/storage/bind-mounts/).
